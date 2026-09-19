@@ -25,7 +25,7 @@ h2{font-size:16px;margin:30px 0 8px;border-left:4px solid var(--blue);padding-le
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
 .card .v{font-size:22px;font-weight:600}
 .card .k{font-size:12px;color:var(--sub)}
-.map{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.replay{display:grid;gap:14px}.replay-round{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}.replay-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.round-tag{font-weight:700}.replay-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.replay-box{border:1px solid var(--line);border-radius:8px;padding:10px}.replay-box .k{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px}.replay-box pre{white-space:pre-wrap;max-height:180px;overflow:auto;margin:6px 0 0;background:#f6f8fa;padding:8px;border-radius:6px;font-size:11.5px}.metric-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.metric{padding:4px 9px;border-radius:99px;background:#f0f2f5;font-size:12px}@media(max-width:700px){.replay-grid{grid-template-columns:1fr}}\n.map{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
 .tile{background:var(--card);border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:12px 14px}
 .tile.stable{border-left-color:var(--green)}
 .tile.fixed{border-left-color:var(--blue)}
@@ -114,6 +114,9 @@ def _norm(r: dict) -> dict:
         "prompt": r.get("prompt", ""),
         "cheat": r.get("cheat", []),
         "score": r.get("score", 0.0),
+        "golf_score": r.get("golf_score") or {},
+        "prompt_chars": r.get("prompt_chars", len(r.get("prompt", ""))),
+        "prompt_chars_total": r.get("prompt_chars_total", 0),
         "public": r.get("public") or {"passed": 0, "total": 0, "failures": []},
         "hidden": r.get("hidden") or {"passed": 0, "total": 0, "failures": []},
         # gaps 统一成汇总 + 明细两份，图表用汇总，地图明细用 detail
@@ -143,7 +146,7 @@ def build(rd: Path) -> Path:
     score = final["score"] if final else 0.0
     closed = sum(1 for s in states.values() if s["state"] != "open")
     parts.append('<div class="top">')
-    parts.append(f'<div class="donut">{_donut(score)}<div class="label">最终得分</div></div>')
+    parts.append(f'<div class="donut">{_donut(score)}<div class="label">最终质量分</div></div>')
     parts.append('<div class="cards">')
     if final:
         parts.append(f'<div class="card"><div class="v">{final["hidden"]["passed"]}/{final["hidden"]["total"]}</div><div class="k">隐藏测试（最后一轮）</div></div>')
@@ -151,6 +154,8 @@ def build(rd: Path) -> Path:
     cheat_n = sum(len(r["cheat"]) for r in rounds)
     parts.append(f'<div class="card"><div class="v" style="color:{"var(--red)" if cheat_n else "var(--green)"}">{cheat_n}</div><div class="k">作弊发现</div></div>')
     parts.append(f'<div class="card"><div class="v">{len(rounds)}</div><div class="k">使用轮数</div></div>')
+    if final and final["golf_score"]:
+        parts.append(f'<div class="card"><div class="v">{final["golf_score"].get("total", 0):.2f}</div><div class="k">最终 Golf Score</div></div>')
     parts.append('</div></div>')
 
     # 缝隙地图
@@ -177,6 +182,31 @@ def build(rd: Path) -> Path:
             f'<div class="hist">{hist}</div><details><summary>这条缝是什么</summary>'
             f'<p><b>留白:</b> {e(g["hint"])}</p><p><b>认定:</b> {e(g["intent"])}</p>{fail_html}</details></div>'
         )
+    parts.append('</div>')
+
+    # Prompt Replay：把每一轮的 prompt → 评测结果串成一条可回放轨迹
+    parts.append('<h2>Prompt Replay</h2>')
+    parts.append('<p class="sub">从第一轮开始回放：你给了模型什么上下文、模型经过评测后暴露了哪些问题，以及下一轮 prompt 的成本。这个视图强调“prompt → 反馈 → 下一次 prompt”的闭环。</p>')
+    parts.append('<div class="replay">')
+    for i, r in enumerate(rounds):
+        gs = r["golf_score"]
+        g = r["gaps"]
+        parts.append(
+            f'<div class="replay-round"><div class="replay-head"><span class="round-tag">R{r["n"]}</span>'
+            f'<span class="metric">质量分 {r["score"]:.2f}</span></div>'
+            f'<div class="replay-grid">'
+            f'<div class="replay-box"><div class="k">Prompt</div><pre>{e(r["prompt"])}</pre></div>'
+            f'<div class="replay-box"><div class="k">评测结果</div>'
+            f'<div class="metric-row"><span class="metric">公开 {r["public"]["passed"]}/{r["public"]["total"]}</span>'
+            f'<span class="metric">隐藏 {r["hidden"]["passed"]}/{r["hidden"]["total"]}</span>'
+            f'<span class="metric">缝隙 {g["passed"]}/{g["total"]}</span>'
+            f'<span class="metric">作弊 {len(r["cheat"])}</span></div>'
+            f'<p class="sub">Prompt 成本 {r["prompt_chars"]} 字符 · 累计 {r["prompt_chars_total"]} 字符'
+            + (f' · Golf Score {gs.get("total", 0):.2f} · 效率 {gs.get("efficiency", 0):.2f}' if gs else '')
+            + '</p></div></div></div>'
+        )
+        if i < len(rounds) - 1:
+            parts.append('<div style="text-align:center;color:var(--sub);font-size:12px">↓ 下一轮 prompt</div>')
     parts.append('</div>')
 
     # 逐轮曲线
@@ -231,7 +261,7 @@ def build(rd: Path) -> Path:
     parts.append(
         f'<footer>评分公式：得分 = ({s["hidden_w"]}×隐藏通过率 + {s["canary_w"]}×缝隙堵住率) × '
         f'max(0, 1 − {s["cheat_step"]}×作弊数) − {s["round_penalty"]}×(轮数−1)，下限 0。'
-        f'生成时间 {time.strftime("%Y-%m-%d %H:%M:%S")} · PromptGolf</footer>'
+        f'生成时间 {time.strftime("%Y-%m-%d %H:%M:%S")} · PromptGolf · Golf Score 体现质量与 prompt 成本的联合效率</footer>'
     )
     parts.append('</div></body></html>')
 
