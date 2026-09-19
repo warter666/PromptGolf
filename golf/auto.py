@@ -92,6 +92,7 @@ def run(task_id: str, rounds: int = 5, run_dir: str | None = None,
         (rd / entry).write_text(code, encoding="utf-8")
 
         rec = evaluate.evaluate_round(rd, task, k)
+        state = core.load_run(rd)
         rec["n"] = k
         rec["prompt"] = user
         rec["prompt_chars"] = len(user)
@@ -99,7 +100,6 @@ def run(task_id: str, rounds: int = 5, run_dir: str | None = None,
         rec["usage"] = usage
         rec["golf_score"] = core.golf_score(task, rec["score"], rec["prompt_chars_total"])
         rec["time"] = time.strftime("%Y-%m-%d %H:%M:%S")
-        state = core.load_run(rd)
         state["rounds"].append(rec)
         core.save_run(rd, state)
         fmt.feedback(rec, state["rounds"][k - 2] if k >= 2 else None)
