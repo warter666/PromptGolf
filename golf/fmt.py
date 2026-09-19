@@ -46,6 +46,11 @@ def feedback(rec: dict, prev: dict | None) -> None:
             print(f"  [{c['kind']}] {c['detail']}")
     else:
         print("作弊扫描  未发现异常")
+    if rec.get("prompt_chars_total") is not None:
+        print(f"Prompt 成本  {rec["prompt_chars"]} 字符（累计 {rec["prompt_chars_total"]}）")
+    if rec.get("golf_score"):
+        gs = rec["golf_score"]
+        print(f"Golf Score  {gs["total"]:.2f}   效率系数 {gs["efficiency"]:.2f}")
     b = rec["breakdown"]
     print(
         f"本轮得分  {b['total']:.2f}  "

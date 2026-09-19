@@ -15,6 +15,7 @@ DEFAULT_SCORING = {
     "cheat_step": 0.5,
     "round_penalty": 0.1,
     "max_rounds": 8,
+    "prompt_cost_base": 3000,
 }
 
 # 运行目录根 conftest：让测试能 import 运行目录里的被测模块
@@ -115,4 +116,18 @@ def score(task: dict, hidden_rate: float, canary_rate: float, cheat_n: int, roun
         "cheat_mult": mult,
         "round_penalty": round(penalty, 4),
         "total": total,
+    }
+
+
+def golf_score(task: dict, quality_score: float, prompt_chars: int) -> dict:
+    """在原有质量分之外，给出体现 prompt 成本的 0~1 Golf Score。
+
+    prompt_cost_base 越大，表示允许更长的 prompt；不改变原有 score，便于比较旧数据。
+    """
+    base = max(1, int(task["scoring"].get("prompt_cost_base", 3000)))
+    efficiency = base / (base + max(0, prompt_chars))
+    return {
+        "prompt_chars": max(0, int(prompt_chars)),
+        "efficiency": round(efficiency, 4),
+        "total": round(max(0.0, min(1.0, quality_score * efficiency)), 4),
     }

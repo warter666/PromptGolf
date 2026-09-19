@@ -34,7 +34,7 @@ def _check_base(base: str) -> str:
     return u.geturl()
 
 
-def _chat(base: str, key: str, model: str, messages: list, timeout: int = 180) -> str:
+def _chat(base: str, key: str, model: str, messages: list, timeout: int = 180) -> tuple[str, dict]:
     url = _check_base(base).rstrip("/") + "/chat/completions"
     req = urllib.request.Request(
         url,
@@ -44,7 +44,7 @@ def _chat(base: str, key: str, model: str, messages: list, timeout: int = 180) -
     )
     with _opener.open(req, timeout=timeout) as r:
         data = json.loads(r.read().decode("utf-8"))
-    return data["choices"][0]["message"]["content"]
+    return data["choices"][0]["message"]["content"], data.get("usage") or {}
 
 
 def extract_code(text: str) -> str:
@@ -55,7 +55,7 @@ def extract_code(text: str) -> str:
 
 
 def run(task_id: str, rounds: int = 5, run_dir: str | None = None,
-        model: str | None = None, base: str | None = None) -> Path:
+        model: str | None = None, base: str | None = None, benchmark: bool = False) -> Path:
     base = base or os.environ.get("GOLF_API_BASE", "https://api.openai.com/v1")
     key = os.environ.get("GOLF_API_KEY", "")
     model = model or os.environ.get("GOLF_MODEL", "")
@@ -64,7 +64,7 @@ def run(task_id: str, rounds: int = 5, run_dir: str | None = None,
     _check_base(base)
 
     task = core.load_task(task_id)
-    rd = core.new_run(task_id, run_dir, mode="auto")
+    rd = core.new_run(task_id, run_dir, mode="benchmark" if benchmark else "auto")
     entry = task["entry"][0]
     print(f"自动模式: {model} @ {_check_base(base)} · 运行目录 {rd}")
 
@@ -78,7 +78,7 @@ def run(task_id: str, rounds: int = 5, run_dir: str | None = None,
         user += f"\n这是第 {k}/{rounds} 轮。直接输出完整的 {entry}。"
 
         try:
-            text = _chat(base, key, model, [
+            text, usage = _chat(base, key, model, [
                 {"role": "system", "content": sysmsg},
                 {"role": "user", "content": user},
             ])
@@ -92,19 +92,25 @@ def run(task_id: str, rounds: int = 5, run_dir: str | None = None,
         (rd / entry).write_text(code, encoding="utf-8")
 
         rec = evaluate.evaluate_round(rd, task, k)
-        rec["n"] = k
-        rec["prompt"] = f"(auto) {model} 第 {k} 轮"
-        rec["time"] = time.strftime("%Y-%m-%d %H:%M:%S")
         state = core.load_run(rd)
+        rec["n"] = k
+        rec["prompt"] = user
+        rec["prompt_chars"] = len(user)
+        rec["prompt_chars_total"] = sum(int(r.get("prompt_chars", len(r.get("prompt", "")))) for r in state["rounds"]) + len(user)
+        rec["usage"] = usage
+        rec["golf_score"] = core.golf_score(task, rec["score"], rec["prompt_chars_total"])
+        rec["time"] = time.strftime("%Y-%m-%d %H:%M:%S")
         state["rounds"].append(rec)
         core.save_run(rd, state)
         fmt.feedback(rec, state["rounds"][k - 2] if k >= 2 else None)
 
         fails = rec["public"]["failures"]
         last_public = "\n".join(f"- {f['name']}: {f['text'][:200]}" for f in fails)
-        if not fails:
+        if not fails and not benchmark:
             print("\n公开测试全部通过，自动模式提前结束（隐藏测试与缝隙只用于评分）")
             break
+        if not fails and benchmark:
+            print(f"\n公开测试已通过，benchmark 模式继续第 {k + 1} 轮，寻找隐藏缝隙")
 
     from . import report
     out = report.build(rd)
