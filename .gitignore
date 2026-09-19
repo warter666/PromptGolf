@@ -1,0 +1,5 @@
+runs/
+.shots/
+.mimosa/
+__pycache__/
+*.pyc

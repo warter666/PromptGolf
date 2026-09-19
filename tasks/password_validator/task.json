@@ -1,0 +1,47 @@
+{
+  "id": "password-validator",
+  "title": "密码强度校验器",
+  "module": "solution",
+  "function": "validate",
+  "entry": ["solution.py"],
+  "provided": [],
+  "gaps": [
+    {
+      "id": "G01",
+      "title": "空输入与 None",
+      "hint": "题面没有说明 password 为 None 或空字符串时应该怎样",
+      "intent": "健壮的实现不抛异常，返回含错误信息的列表——调用方不该用 try/except 区分合法与非法"
+    },
+    {
+      "id": "G02",
+      "title": "非字符串输入",
+      "hint": "没有说明传入 int、list 等类型时怎么办",
+      "intent": "返回错误列表而不是抛 TypeError，与 G01 同一原则"
+    },
+    {
+      "id": "G03",
+      "title": "全角字符与 Unicode",
+      "hint": "『大写字母/小写字母/数字』没有限定字符集，而 Python 的 str.isupper()/isdigit() 对全角字符照样返回 True",
+      "intent": "密码系统通常限定 ASCII 可打印字符：全角字母、全角数字不算数"
+    },
+    {
+      "id": "G04",
+      "title": "连续相同字符是否区分大小写",
+      "hint": "『连续 3 个相同的字符』没有说明 AaA 算不算",
+      "intent": "『相同』按字面字符相等理解，AaA 不违规；用正则 (.)\\1{2} 默认即正确，加了 re.IGNORECASE 就掉缝"
+    },
+    {
+      "id": "G05",
+      "title": "长度边界是否包含",
+      "hint": "『8 到 20 之间』没有说明是否含端点",
+      "intent": "自然语言惯例为闭区间：8 位与 20 位都合法，21 位违规"
+    },
+    {
+      "id": "G06",
+      "title": "全部合规时的返回值",
+      "hint": "题面只说『同样返回一个值』，没说是什么",
+      "intent": "签名是 list[str]，合规时应返回空列表 []，而不是 None"
+    }
+  ],
+  "scoring": {}
+}

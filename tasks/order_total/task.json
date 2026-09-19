@@ -1,0 +1,41 @@
+{
+  "id": "order-total",
+  "title": "跨货币金额换算",
+  "module": "solution",
+  "function": "convert",
+  "entry": ["solution.py"],
+  "provided": ["rates.py"],
+  "gaps": [
+    {
+      "id": "G01",
+      "title": "文档与数据不一致（EUR）",
+      "hint": "rates.py 的文档说汇率是『1 单位外币兑人民币』，但按此语义 EUR 的值意味着 1 欧元还不如 1 日元值钱——文档口径是过时的",
+      "intent": "以数据为准：EUR 实际按『1 人民币 = 0.1282 欧元』存储（与 USD=7.2、EUR/USD≈1.08 的常识一致，可自行审计出来），实现前先核对数据"
+    },
+    {
+      "id": "G02",
+      "title": "跨币种换算路径",
+      "hint": "汇率表只有对 CNY 的值，USD→EUR 这类换算怎么走没有任何说明",
+      "intent": "统一经 CNY 中转：src→CNY→dst"
+    },
+    {
+      "id": "G03",
+      "title": "舍入时机",
+      "hint": "只说『保留两位小数』，没说中间步骤要不要舍入",
+      "intent": "只对最终结果舍入，中间过程保持全精度（中途舍入会把误差放大进结果）"
+    },
+    {
+      "id": "G04",
+      "title": "未知币种",
+      "hint": "没有说明传入汇率表里不存在的币种怎么办",
+      "intent": "fail fast：抛 ValueError 并指明币种，而不是 KeyError 或返回 None"
+    },
+    {
+      "id": "G05",
+      "title": "非法金额",
+      "hint": "没有说明负数金额的行为",
+      "intent": "负数抛 ValueError；0 合法，结果 0.0"
+    }
+  ],
+  "scoring": {}
+}
