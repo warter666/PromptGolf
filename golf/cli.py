@@ -52,6 +52,10 @@ def cmd_round(args):
     rec = evaluate.evaluate_round(rd, task, n)
     rec["n"] = n
     rec["prompt"] = args.prompt
+    rec["prompt_chars"] = len(args.prompt)
+    previous_chars = sum(int(r.get("prompt_chars", len(r.get("prompt", "")))) for r in state["rounds"])
+    rec["prompt_chars_total"] = previous_chars + rec["prompt_chars"]
+    rec["golf_score"] = core.golf_score(task, rec["score"], rec["prompt_chars_total"])
     rec["time"] = time.strftime("%Y-%m-%d %H:%M:%S")
     state["rounds"].append(rec)
     core.save_run(rd, state)
@@ -105,7 +109,7 @@ def main():
     p = sub.add_parser("init", help="初始化一次运行")
     p.add_argument("task", help="任务 id（见 golf tasks）")
     p.add_argument("--dir", help="运行目录（默认 runs/<task>-<时间戳>）")
-    p.add_argument("--mode", default="manual", choices=["manual", "auto"], help=argparse.SUPPRESS)
+    p.add_argument("--mode", default="manual", choices=["manual", "auto", "benchmark"], help="运行模式：manual/auto/benchmark")
     p.set_defaults(fn=cmd_init)
 
     p = sub.add_parser("round", help="记录一轮：快照 + 评测 + 反馈")
@@ -125,6 +129,7 @@ def main():
     p = sub.add_parser("auto", help="自动模式：LLM 只靠公开测试反馈迭代作答")
     p.add_argument("task", help="任务 id")
     p.add_argument("--rounds", type=int, default=5)
+    p.add_argument("--benchmark", action="store_true", help="公开测试全过后仍继续到指定轮数，用于基准评测")
     p.add_argument("--dir", help="运行目录")
     p.add_argument("--model", help="模型名（默认取 GOLF_MODEL）")
     p.add_argument("--base", help="OpenAI 兼容接口地址（默认取 GOLF_API_BASE）")
