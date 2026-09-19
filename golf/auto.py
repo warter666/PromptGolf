@@ -64,7 +64,7 @@ def run(task_id: str, rounds: int = 5, run_dir: str | None = None,
     _check_base(base)
 
     task = core.load_task(task_id)
-    rd = core.new_run(task_id, run_dir, mode="auto")
+    rd = core.new_run(task_id, run_dir, mode="benchmark" if benchmark else "auto")
     entry = task["entry"][0]
     print(f"自动模式: {model} @ {_check_base(base)} · 运行目录 {rd}")
 
