@@ -94,7 +94,7 @@ def cmd_report(args):
 def cmd_auto(args):
     fmt.setup()
     from . import auto
-    auto.run(args.task, rounds=args.rounds, run_dir=args.dir, model=args.model, base=args.base)
+    auto.run(args.task, rounds=args.rounds, run_dir=args.dir, model=args.model, base=args.base, benchmark=args.benchmark)
 
 
 def main():
